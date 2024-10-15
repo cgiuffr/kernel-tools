@@ -2,11 +2,11 @@
 
 This repository *should* make it easy to run LLVM LTO passes on the Linux kernel for dynamic and static analysis.
 
-To run it you need to set the following environment variables in your shell or in a `.env` file:
+To run it you need to override the following environment variables in a `.env` file (unless you're happy with `.env.default` settings):
 
-* `LLVMPREFIX`: by default points to the `llvm-project` directory (created with `task llvm:clone`), you can overwrite it with your own or for example `/usr/lib/llvm-12`.
-* `KERNEL`: should point to the Linux kernel repo.
-* `REPOS` should point to the directories holding the LLVM LTO passes and runtimes (space separated).
+* `LLVMVERSION`: should point to the LLVM version to use (e.g., 14)
+* `KERNELVERSION`: should point to the Linux kernel version to use (e.g., 6.9)
+* `REPOS` should point to the directories holding the LLVM LTO passes and runtimes, space separated (e.g., ./instr).
 
 For convenience you can add `kernel-tools/bin` to your PATH and run any command executable with `task ...` from within the kernel repo.
 This is useful to for example start the kernel you are in directly in qemu.
@@ -29,9 +29,11 @@ sudo snap install go --classic
 
 Install the usual dependencies:
 ```
+source .env.default .env
+# build tools
 sudo apt install cmake gdb
 # llvm-project
-sudo apt install build-essential clang-12 lld-12 ninja-build ccache
+sudo apt install build-essential clang-$LLVMVERSION lld-$LLVMVERSION ninja-build ccache
 # linux
 sudo apt install bison flex libelf-dev libssl-dev
 # syzkaller
@@ -49,15 +51,10 @@ To compile your `llvm-project` you can simply run:
 task llvm:create llvm:config llvm:build
 ```
 
-## Compile your passes
-```
-task build
-```
-
 ## Compile and configure your kernel
 To compile your kernel with CLANG/LLVM and set the necessary config you can run:
 ```
-task kernel:config kernel:bzImage
+task kernel:create kernel:config kernel:bzImage
 ```
 
 ## Run your kernel with QEMU
@@ -106,9 +103,14 @@ To start syzkaller for fuzzing just run:
 task syzkaller:run
 ```
 
-## Run LTO passes on the kernel
+## Compile your passes
 ```
-task passes:run -- pass1:pass2
+task build
+```
+
+## Run passes on the kernel
+```
+task passes:run -- lto:pass1:pass2 # for lto, use compile:pass1:pass2 for compile-time passes
 ```
 
 The directories `REPOS` are pointing to need to follow a certain pattern right now:
@@ -123,7 +125,7 @@ you can simply run:
 task passes:run -- .
 ```
 
-You can get inspired by [kernel-tools-template-repo](https://github.com/Jakob-Koschel/kernel-tools-template-repo) on how such a repository can be setup.
+You can get inspired by [kernel-tools-template-repo](https://github.com/cgiuffr/kernel-tools-template-repo) on how such a repository can be setup.
 
 ## Share files with the VM
 

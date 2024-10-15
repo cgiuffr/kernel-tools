@@ -4,7 +4,13 @@ tasks:
   create:
     desc: clone llvm-project
     cmds:
-      - git clone https://github.com/llvm/llvm-project.git
+      - rm -rf llvm-project-release-{{.LLVMVERSION}}.x; rm -f {{.LLVMVERSION}}.x.tar.gz
+      - wget https://github.com/llvm/llvm-project/archive/refs/heads/release/{{.LLVMVERSION}}.x.tar.gz
+      - tar xvfz {{.LLVMVERSION}}.x.tar.gz && rm -f {{.LLVMVERSION}}.x.tar.gz
+      - mv llvm-project-release-{{.LLVMVERSION}}.x {{.LLVMDIR}}
+    vars:
+      LLVMDIR:
+        sh: 'readlink -m {{.LLVMPREFIX}}/..'
 
   config:
     desc: configure llvm build

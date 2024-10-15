@@ -7,6 +7,14 @@ env:
   ADDITIONAL_CFLAGS_KASAN_PASSES: "{{.ADDITIONAL_CFLAGS_KASAN_PASSES}}"
 
 tasks:
+  create:
+    desc: clone linux
+    cmds:
+      - rm -rf linux-linux-{{.KERNELVERSION}}.y; rm -f linux-{{.KERNELVERSION}}.y.tar.gz
+      - wget https://github.com/gregkh/linux/archive/refs/heads/linux-{{.KERNELVERSION}}.y.tar.gz
+      - tar xvfz linux-{{.KERNELVERSION}}.y.tar.gz && rm -f linux-{{.KERNELVERSION}}.y.tar.gz
+      - mv linux-linux-{{.KERNELVERSION}}.y {{.KERNEL}}
+
   make:
     desc: compile the linux kernel to create the final image
     cmds:
@@ -29,7 +37,7 @@ tasks:
           ADDITIONAL_CFLAGS_KASAN="{{.ADDITIONAL_CFLAGS_KASAN_PASSES}}" \
           ADDITIONAL_KBUILD_LDFLAGS="{{.ADDITIONAL_KBUILD_LDFLAGS}}" \
           ADDITIONAL_KBUILD_VMLINUX_OBJS="{{.ADDITIONAL_KBUILD_VMLINUX_OBJS}}" \
-          -f {{.ROOT}}/Makefile.kernel \
+          -f Makefile.llvm \
           {{.CLI_ARGS}}
 
   bzImage:
@@ -62,9 +70,21 @@ tasks:
           vmlinux.a vmlinux vmlinux.o \
           .thinlto-cache
 
+  init:
+    desc: Hack the Linux kernel root Makefile to support LLVM-related flags
+    cmds:
+      - |
+        [ -f {{.KERNEL}}/Makefile.llvm ] || ( \
+          cd {{.KERNEL}} && \
+          sed -e 's/\(KBUILD_LDFLAGS[[:space:]]*:\?=\)/\1 $(ADDITIONAL_KBUILD_LDFLAGS)/g' \
+              -e 's/\(KBUILD_VMLINUX_OBJS[[:space:]]*:\?=\)/\1 $(ADDITIONAL_KBUILD_VMLINUX_OBJS)/g' \
+              -e 's/$(abs_srctree)\/Makefile/$(abs_srctree)\/Makefile.llvm/g' \
+              Makefile > Makefile.llvm )
+
   configure:
     desc: apply custom kernel config required
     cmds:
+      - task: init
       - task: make
         vars: {CLI_ARGS: "defconfig"}
       - |
@@ -98,10 +118,10 @@ tasks:
       - task: make
         vars: {CLI_ARGS: "modules_prepare"}
 
-
   configure-from-config-file:
     desc: apply custom kernel config from a .config file set from KERNEL_CONFIG
     cmds:
+      - task: init
       - cp {{.KERNEL_CONFIG}} {{.KERNEL}}/.config
       - task: make
         vars: {CLI_ARGS: "modules_prepare"}
